@@ -8,7 +8,7 @@
 </head>
 <body>
   <main>
-    <header><span class="brand">DHL</span><h1>Zebra Label Printer</h1></header>
+    <header><img class="brand-logo" src="{{ url_for('static', path='/dhl-logo.svg') }}" alt="DHL"><h1>Zebra Label Printer</h1></header>
     {% if error %}<div class="message error">{{ error }}</div>{% endif %}
     {% if source_preview %}
     <section class="card result warning-preview">

@@ -80,6 +80,90 @@ def _shipping_rotation(page: fitz.Page) -> int:
     raise UnsupportedLabelError("Die Orientierung der Versandmarke konnte nicht bestimmt werden.")
 
 
+def _tight_label_crop(page: fitz.Page, coarse: fitz.Rect, rotation: int) -> fitz.Rect:
+    """Trim the A5 carrier section to the actual ruled shipping label.
+
+    DHL's printable label contains several long, parallel separator rules. Their
+    shared endpoints define the label width without relying on fixed A4 pixels.
+    Text, image and vector bounds inside that width then define its full length.
+    """
+    drawings = page.get_drawings()
+    vertical = rotation in (90, 270)
+
+    def within_coarse(rect: fitz.Rect) -> bool:
+        return (
+            coarse.x0 <= rect.x0 <= coarse.x1
+            and coarse.y0 <= rect.y0 <= coarse.y1
+            and coarse.x0 <= rect.x1 <= coarse.x1
+            and coarse.y0 <= rect.y1 <= coarse.y1
+        )
+
+    if vertical:
+        rules = [
+            item["rect"]
+            for item in drawings
+            if item.get("type") == "s"
+            and item["rect"].width < 2
+            and item["rect"].height > coarse.height * 0.45
+            and within_coarse(item["rect"])
+        ]
+    else:
+        rules = [
+            item["rect"]
+            for item in drawings
+            if item.get("type") == "s"
+            and item["rect"].height < 2
+            and item["rect"].width > coarse.width * 0.45
+            and within_coarse(item["rect"])
+        ]
+    if len(rules) < 3:
+        raise UnsupportedLabelError(
+            "Die Begrenzung der Versandmarke konnte nicht sicher erkannt werden."
+        )
+
+    if vertical:
+        cross_min = min(rect.y0 for rect in rules)
+        cross_max = max(rect.y1 for rect in rules)
+        slab = fitz.Rect(coarse.x0, cross_min - 12, coarse.x1, cross_max + 12) & coarse
+    else:
+        cross_min = min(rect.x0 for rect in rules)
+        cross_max = max(rect.x1 for rect in rules)
+        slab = fitz.Rect(cross_min - 12, coarse.y0, cross_max + 12, coarse.y1) & coarse
+
+    bounds: fitz.Rect | None = None
+
+    def include(rect: fitz.Rect) -> None:
+        nonlocal bounds
+        clipped = rect & slab
+        if clipped.is_empty:
+            return
+        if bounds is None:
+            bounds = fitz.Rect(clipped)
+        else:
+            bounds.include_rect(clipped)
+
+    for word in page.get_text("words"):
+        include(fitz.Rect(word[:4]))
+    for image in page.get_image_info():
+        include(fitz.Rect(image["bbox"]))
+    for drawing in drawings:
+        rect = drawing["rect"]
+        # Exclude page-wide cut lines while retaining barcode bars and rules.
+        if rect.width < coarse.width * 0.9 and rect.height < coarse.height * 0.9:
+            include(rect)
+
+    if bounds is None:
+        raise UnsupportedLabelError("Im erkannten Versandlabel wurde kein Inhalt gefunden.")
+    bounds = fitz.Rect(bounds.x0 - 6, bounds.y0 - 6, bounds.x1 + 6, bounds.y1 + 6) & coarse
+    if vertical:
+        bounds.y0 = max(coarse.y0, cross_min - 6)
+        bounds.y1 = min(coarse.y1, cross_max + 6)
+    else:
+        bounds.x0 = max(coarse.x0, cross_min - 6)
+        bounds.x1 = min(coarse.x1, cross_max + 6)
+    return bounds
+
+
 def _crop_from_anchors(page: fitz.Page, shipping: fitz.Rect, receipt: fitz.Rect) -> fitz.Rect:
     bounds = page.rect
     dx = receipt.x0 + receipt.width / 2 - (shipping.x0 + shipping.width / 2)
@@ -122,8 +206,9 @@ def process_dhl_pdf(data: bytes, width_mm: float = 100, height_mm: float = 150) 
         source_preview = _render_page(page, 110)
         try:
             shipping, receipt = _find_anchors(page)
-            crop = _crop_from_anchors(page, shipping, receipt)
+            coarse_crop = _crop_from_anchors(page, shipping, receipt)
             rotate = _shipping_rotation(page)
+            crop = _tight_label_crop(page, coarse_crop, rotate)
         except UnsupportedLabelError as exc:
             exc.preview_png = source_preview
             raise

@@ -6,6 +6,7 @@ Eine kleine, plattformunabhängige Docker-Webanwendung, die die Versandmarke aus
 
 - Drag-and-drop-Upload und serverseitige HTML-Oberfläche
 - konservative DHL-Erkennung über die Textanker `DHL Online Frankierung`, `Sendungsinformation` und `Ihre Unterlagen`
+- dynamischer Feinbeschnitt anhand der Label-Trennlinien; A5-Leerfläche und Schneidemarken werden entfernt
 - automatische Erkennung der im PDF gedrehten Schreibrichtung
 - vektorbasierter Beschnitt; Rasterung erst in der konfigurierten Druckerauflösung
 - Vorschau, Download als 100 × 150-mm-PDF und direkter ZPL/GRF-Druck
@@ -81,3 +82,7 @@ Die Anwendung besitzt im MVP keine Authentifizierung. Sie sollte ausschließlich
 ## Lizenz
 
 MIT
+
+### DHL-Logo
+
+Das in `app/static/dhl-logo.svg` verwendete DHL-Logo stammt von [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:DHL_Logo.svg). Laut dortiger Dateibeschreibung besteht es aus einfachen geometrischen Formen und Text und ist urheberrechtlich gemeinfrei. DHL und das DHL-Logo sind Marken ihrer jeweiligen Rechteinhaber; ihre Verwendung bedeutet keine Unterstützung oder offizielle Verbindung zu diesem Projekt.
