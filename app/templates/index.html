@@ -29,21 +29,23 @@
     </section>
     {% if token %}
     <section class="card result">
-      <div><h2>2. Druckvorschau</h2><p>Diese Fläche wird auf 100 × 150 mm gedruckt.</p></div>
-      <img src="/preview/{{ token }}" alt="Vorschau des extrahierten Versandlabels">
+      <div><h2>2. Druckvorschau</h2><p>Ausgabeformat: <strong id="label-size"></strong>. Die Vorschau entspricht dem gewählten Druckerprofil.</p></div>
+      {% if printers %}
+      <img id="label-preview" src="/preview/{{ token }}/{{ selected_printer|default(0) }}" alt="Vorschau des extrahierten Versandlabels">
       <div class="actions">
-        <a class="button secondary" href="/download/{{ token }}">PDF herunterladen</a>
+        <a id="label-download" class="button secondary" href="/download/{{ token }}/{{ selected_printer|default(0) }}">PDF herunterladen</a>
         <form action="/print/{{ token }}" method="post">
-          <select name="printer" required aria-label="Drucker">
-            {% for p in printers %}<option value="{{ loop.index0 }}">{{ p.name }} · {{ p.dpi }} dpi · {{ p.host }}</option>{% endfor %}
+          <select id="printer-profile" name="printer" required aria-label="Druckerprofil">
+            {% for p in printers %}<option value="{{ loop.index0 }}" data-width="{{ p.label_width_mm }}" data-height="{{ p.label_height_mm }}" {% if loop.index0 == selected_printer|default(0) %}selected{% endif %}>{{ p.name }} · {{ p.label_width_mm|int if p.label_width_mm % 1 == 0 else p.label_width_mm }} × {{ p.label_height_mm|int if p.label_height_mm % 1 == 0 else p.label_height_mm }} mm · {{ p.dpi }} dpi</option>{% endfor %}
           </select>
-          <button type="submit" {% if not printers %}disabled{% endif %}>Jetzt drucken</button>
+          <button type="submit">Jetzt drucken</button>
         </form>
       </div>
+      {% else %}<div class="message error">Kein Druckerprofil konfiguriert.</div>{% endif %}
     </section>
     {% endif %}
     <p class="privacy">Datenschutz: Das Original-PDF wird nur im Arbeitsspeicher verarbeitet. Ergebnisse verfallen nach 15 Minuten.</p>
   </main>
-  <script>const i=document.querySelector('#pdf'),d=document.querySelector('#drop');i?.addEventListener('change',()=>{if(i.files[0])d.querySelector('strong').textContent=i.files[0].name});['dragenter','dragover'].forEach(e=>d?.addEventListener(e,x=>{x.preventDefault();d.classList.add('over')}));['dragleave','drop'].forEach(e=>d?.addEventListener(e,x=>{x.preventDefault();d.classList.remove('over');if(e==='drop'&&x.dataTransfer.files.length){i.files=x.dataTransfer.files;d.querySelector('strong').textContent=i.files[0].name}}));</script>
+  <script>const i=document.querySelector('#pdf'),d=document.querySelector('#drop');i?.addEventListener('change',()=>{if(i.files[0])d.querySelector('strong').textContent=i.files[0].name});['dragenter','dragover'].forEach(e=>d?.addEventListener(e,x=>{x.preventDefault();d.classList.add('over')}));['dragleave','drop'].forEach(e=>d?.addEventListener(e,x=>{x.preventDefault();d.classList.remove('over');if(e==='drop'&&x.dataTransfer.files.length){i.files=x.dataTransfer.files;d.querySelector('strong').textContent=i.files[0].name}}));const p=document.querySelector('#printer-profile'),v=document.querySelector('#label-preview'),a=document.querySelector('#label-download'),s=document.querySelector('#label-size');function updateProfile(){if(!p)return;const o=p.selectedOptions[0],n=p.value;if(v)v.src='/preview/{{ token|default("") }}/'+n;if(a)a.href='/download/{{ token|default("") }}/'+n;if(s)s.textContent=o.dataset.width+' × '+o.dataset.height+' mm'}p?.addEventListener('change',updateProfile);updateProfile();</script>
 </body>
 </html>

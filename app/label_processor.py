@@ -19,7 +19,6 @@ class UnsupportedLabelError(ValueError):
 @dataclass(frozen=True)
 class ProcessedLabel:
     pdf: bytes
-    preview_png: bytes
     crop: tuple[float, float, float, float]
 
 
@@ -192,7 +191,7 @@ def _render_page(page: fitz.Page, dpi: int, alpha: bool = False) -> bytes:
     return pix.tobytes("png")
 
 
-def process_dhl_pdf(data: bytes, width_mm: float = 100, height_mm: float = 150) -> ProcessedLabel:
+def process_dhl_pdf(data: bytes) -> ProcessedLabel:
     if len(data) > 20 * 1024 * 1024:
         raise UnsupportedLabelError("Die PDF-Datei ist größer als 20 MB.")
     try:
@@ -213,17 +212,42 @@ def process_dhl_pdf(data: bytes, width_mm: float = 100, height_mm: float = 150) 
             exc.preview_png = source_preview
             raise
 
-        target_w = width_mm / 25.4 * 72
-        target_h = height_mm / 25.4 * 72
+        if rotate in (90, 270):
+            target_w, target_h = crop.height, crop.width
+        else:
+            target_w, target_h = crop.width, crop.height
         output = fitz.open()
         out_page = output.new_page(width=target_w, height=target_h)
         out_page.show_pdf_page(out_page.rect, source, 0, clip=crop, rotate=rotate, keep_proportion=True)
         pdf_bytes = output.tobytes(garbage=4, deflate=True)
-        preview = _render_page(out_page, 120)
         output.close()
-        return ProcessedLabel(pdf_bytes, preview, tuple(crop))
+        return ProcessedLabel(pdf_bytes, tuple(crop))
     finally:
         source.close()
+
+
+def format_label_pdf(pdf: bytes, width_mm: float, height_mm: float) -> bytes:
+    """Place a format-neutral vector label on the requested media size."""
+    source = fitz.open(stream=pdf, filetype="pdf")
+    output = fitz.open()
+    try:
+        width_points = width_mm / 25.4 * 72
+        height_points = height_mm / 25.4 * 72
+        page = output.new_page(width=width_points, height=height_points)
+        page.show_pdf_page(page.rect, source, 0, keep_proportion=True)
+        return output.tobytes(garbage=4, deflate=True)
+    finally:
+        output.close()
+        source.close()
+
+
+def render_label_preview(pdf: bytes, width_mm: float, height_mm: float, dpi: int = 120) -> bytes:
+    formatted = format_label_pdf(pdf, width_mm, height_mm)
+    document = fitz.open(stream=formatted, filetype="pdf")
+    try:
+        return _render_page(document[0], dpi)
+    finally:
+        document.close()
 
 
 def render_for_printer(pdf: bytes, width: int, height: int) -> Image.Image:

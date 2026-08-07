@@ -6,10 +6,16 @@ printers:
     label_width_mm: 100
     label_height_mm: 150
 
-  - name: "Zebra ZD420"
+  - name: "Zebra ZD420 – 103 × 199 mm"
     host: "192.168.1.51"
     port: 9100
     dpi: 203
-    label_width_mm: 100
-    label_height_mm: 150
+    label_width_mm: 103
+    label_height_mm: 199
 
+  - name: "Zebra ZD420 – 102 × 210 mm"
+    host: "192.168.1.51"
+    port: 9100
+    dpi: 203
+    label_width_mm: 102
+    label_height_mm: 210

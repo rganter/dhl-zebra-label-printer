@@ -9,7 +9,7 @@ Eine kleine, plattformunabhängige Docker-Webanwendung, die die Versandmarke aus
 - dynamischer Feinbeschnitt anhand der Label-Trennlinien; A5-Leerfläche und Schneidemarken werden entfernt
 - automatische Erkennung der im PDF gedrehten Schreibrichtung
 - vektorbasierter Beschnitt; Rasterung erst in der konfigurierten Druckerauflösung
-- Vorschau, Download als 100 × 150-mm-PDF und direkter ZPL/GRF-Druck
+- formatabhängige Vorschau, PDF-Download und direkter ZPL/GRF-Druck für frei konfigurierte Etikettengrößen
 - Profile für 203- und 300-dpi-Drucker
 - Original-Uploads werden nicht auf Datenträger geschrieben; konvertierte Ergebnisse liegen höchstens 15 Minuten im Arbeitsspeicher
 
@@ -28,6 +28,8 @@ docker compose up -d --build
 Danach `http://SERVER-IP:8085` öffnen. Ohne `WEB_PORT` verwendet die Anwendung weiterhin Host-Port `8000`. Der Container muss die Drucker-IP auf TCP-Port 9100 erreichen können. CUPS wird nicht benötigt.
 
 Die DPI muss zum konkreten Druckkopf passen. Besonders der ZD420 ist je nach Modell mit 203 oder 300 dpi erhältlich. Breite und Höhe werden in Millimetern konfiguriert und erst beim Druck in Druckpunkte umgerechnet.
+
+Mehrere Formate können auch für dieselbe Drucker-IP als separate Profile angelegt werden. Nach dem Upload lässt sich das Profil wechseln; Vorschau und Download werden unmittelbar im gewählten Format neu erzeugt. Das formatneutrale, beschnittene Vektorlabel bleibt dabei unverändert, und sein Seitenverhältnis wird stets erhalten.
 
 ## Portainer
 
@@ -61,13 +63,14 @@ pytest
 
 ## Druckdaten
 
-Das extrahierte Label bleibt bis zum letzten Schritt PDF/Vektor. Für das gewählte Profil wird es genau einmal auf die Zieldimension gerendert, monochromisiert und als `^GFA`-Grafik in einem ZPL-Job an TCP/9100 gesendet. Das Seitenverhältnis bleibt erhalten; nicht belegte Fläche wird weiß aufgefüllt.
+Das extrahierte Label wird formatneutral als PDF/Vektor im Arbeitsspeicher gehalten. Vorschau und Download werden auf die Abmessungen des jeweils gewählten Profils gesetzt. Beim Druck wird das Vektorlabel genau einmal auf die Punktgröße des Druckers gerendert, monochromisiert und als `^GFA`-Grafik in einem ZPL-Job an TCP/9100 gesendet. Das Seitenverhältnis bleibt erhalten; nicht belegte Fläche wird weiß aufgefüllt.
 
 ## Datenschutz
 
 - Keine Upload-Dateinamen, Adressen, Sendungsnummern oder PDF-Inhalte werden geloggt.
 - Original-PDFs werden nur als Request-Bytes verarbeitet und danach verworfen.
-- Vorschau und konvertiertes PDF werden im RAM gehalten und nach Druck oder spätestens 15 Minuten entfernt.
+- Das formatneutrale, beschnittene PDF wird nur im RAM gehalten und nach Druck oder spätestens 15 Minuten entfernt. Ein Hintergrundtask bereinigt abgelaufene Einträge minütlich.
+- Dynamische HTML-, Vorschau- und Download-Antworten tragen `Cache-Control: no-store`, damit personenbezogene Labeldaten nicht im Browsercache verbleiben.
 - Echte PDFs sind per `.gitignore` und `.dockerignore` ausgeschlossen. Test-Fixtures müssen synthetisch oder anonymisiert sein.
 
 Die Anwendung besitzt im MVP keine Authentifizierung. Sie sollte ausschließlich in einem vertrauenswürdigen LAN oder hinter einem authentifizierenden Reverse Proxy betrieben werden.

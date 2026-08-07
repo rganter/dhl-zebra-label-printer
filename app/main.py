@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import base64
+import asyncio
 import secrets
 import time
-import base64
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -12,12 +14,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .config import PrinterProfile, load_printers
-from .label_processor import ProcessedLabel, UnsupportedLabelError, process_dhl_pdf
+from .label_processor import (
+    ProcessedLabel,
+    UnsupportedLabelError,
+    format_label_pdf,
+    process_dhl_pdf,
+    render_label_preview,
+)
 from .printer import print_label
 
 BASE_DIR = Path(__file__).parent
-app = FastAPI(title="DHL Zebra Label Printer")
-app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 
@@ -37,6 +43,38 @@ def _cleanup() -> None:
         del _labels[token]
 
 
+async def _cleanup_loop() -> None:
+    while True:
+        await asyncio.sleep(60)
+        _cleanup()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _labels.clear()
+    task = asyncio.create_task(_cleanup_loop())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+        _labels.clear()
+
+
+app = FastAPI(title="DHL Zebra Label Printer", lifespan=lifespan)
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+
+
+@app.middleware("http")
+async def prevent_sensitive_response_caching(request: Request, call_next):
+    response = await call_next(request)
+    if not request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-store, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+    return response
+
+
 def _get_label(token: str) -> ProcessedLabel:
     _cleanup()
     cached = _labels.get(token)
@@ -50,6 +88,13 @@ def _printers() -> list[PrinterProfile]:
         return load_printers()
     except (OSError, ValueError) as exc:
         raise HTTPException(500, f"Druckerkonfiguration ungültig: {exc}") from exc
+
+
+def _printer(index: int) -> PrinterProfile:
+    printers = _printers()
+    if index < 0 or index >= len(printers):
+        raise HTTPException(400, "Unbekanntes Druckerprofil")
+    return printers[index]
 
 
 @app.get("/health")
@@ -88,35 +133,51 @@ async def upload(request: Request, pdf: UploadFile = File(...)):
     )
 
 
-@app.get("/preview/{token}")
-def preview(token: str):
-    return Response(_get_label(token).preview_png, media_type="image/png", headers={"Cache-Control": "no-store"})
+@app.get("/preview/{token}/{printer}")
+def preview(token: str, printer: int):
+    profile = _printer(printer)
+    image = render_label_preview(
+        _get_label(token).pdf, profile.label_width_mm, profile.label_height_mm
+    )
+    return Response(image, media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
-@app.get("/download/{token}")
-def download(token: str):
+@app.get("/download/{token}/{printer}")
+def download(token: str, printer: int):
+    profile = _printer(printer)
+    formatted = format_label_pdf(
+        _get_label(token).pdf, profile.label_width_mm, profile.label_height_mm
+    )
+    dimensions = f"{profile.label_width_mm:g}x{profile.label_height_mm:g}mm"
     return Response(
-        _get_label(token).pdf,
+        formatted,
         media_type="application/pdf",
-        headers={"Content-Disposition": 'attachment; filename="dhl-label-100x150mm.pdf"', "Cache-Control": "no-store"},
+        headers={
+            "Content-Disposition": f'attachment; filename="dhl-label-{dimensions}.pdf"',
+            "Cache-Control": "no-store",
+        },
     )
 
 
 @app.post("/print/{token}", response_class=HTMLResponse)
 def do_print(request: Request, token: str, printer: int = Form(...)):
     printers = _printers()
-    if printer < 0 or printer >= len(printers):
-        raise HTTPException(400, "Unbekannter Drucker")
+    profile = _printer(printer)
     try:
-        print_label(_get_label(token).pdf, printers[printer])
+        print_label(_get_label(token).pdf, profile)
     except OSError as exc:
         return templates.TemplateResponse(
             request,
             "index.html",
-            {"printers": printers, "token": token, "error": f"Drucker nicht erreichbar: {exc}"},
+            {
+                "printers": printers,
+                "token": token,
+                "selected_printer": printer,
+                "error": f"Drucker nicht erreichbar: {exc}",
+            },
             status_code=502,
         )
     del _labels[token]
     return templates.TemplateResponse(
-        request, "index.html", {"printers": printers, "success": f"An {printers[printer].name} gesendet."}
+        request, "index.html", {"printers": printers, "success": f"An {profile.name} gesendet."}
     )

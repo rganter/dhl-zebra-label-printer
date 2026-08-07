@@ -1,7 +1,12 @@
 import fitz
 import pytest
 
-from app.label_processor import UnsupportedLabelError, process_dhl_pdf
+from app.label_processor import (
+    UnsupportedLabelError,
+    format_label_pdf,
+    process_dhl_pdf,
+    render_label_preview,
+)
 
 
 def synthetic_dhl_pdf(rotated: bool = True) -> bytes:
@@ -59,4 +64,17 @@ def test_rotated_label_is_trimmed_to_its_ruled_content():
     assert y0 > 0
     assert x1 < 595
     assert y1 < 421
-    assert result.preview_png.startswith(b"\x89PNG")
+    assert render_label_preview(result.pdf, 103, 199).startswith(b"\x89PNG")
+
+
+@pytest.mark.parametrize("width_mm,height_mm", [(100, 150), (103, 199), (102, 210)])
+def test_output_pdf_uses_selected_media_size(width_mm, height_mm):
+    label = process_dhl_pdf(synthetic_dhl_pdf())
+    formatted = format_label_pdf(label.pdf, width_mm, height_mm)
+    document = fitz.open(stream=formatted, filetype="pdf")
+    try:
+        page = document[0]
+        assert page.rect.width == pytest.approx(width_mm / 25.4 * 72, abs=0.01)
+        assert page.rect.height == pytest.approx(height_mm / 25.4 * 72, abs=0.01)
+    finally:
+        document.close()
