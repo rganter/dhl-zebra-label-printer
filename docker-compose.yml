@@ -4,7 +4,7 @@ services:
     container_name: dhl-zebra-label-printer
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "${WEB_PORT:-8000}:8000"
     volumes:
       - ${PRINTER_CONFIG_FILE:-./config/printers.example.yml}:/config/printers.yml:ro
     environment:
