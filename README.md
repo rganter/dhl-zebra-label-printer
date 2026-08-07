@@ -20,10 +20,11 @@ Unbekannte, mehrseitige oder geometrisch unplausible Layouts werden nicht gedruc
 cp config/printers.example.yml config/printers.yml
 # IP-Adressen, DPI und Format in config/printers.yml anpassen
 export PRINTER_CONFIG_FILE=./config/printers.yml  # PowerShell: $env:PRINTER_CONFIG_FILE="./config/printers.yml"
+export WEB_PORT=8085                              # PowerShell: $env:WEB_PORT="8085"
 docker compose up -d --build
 ```
 
-Danach `http://SERVER-IP:8000` öffnen. Der Container muss die Drucker-IP auf TCP-Port 9100 erreichen können. CUPS wird nicht benötigt.
+Danach `http://SERVER-IP:8085` öffnen. Ohne `WEB_PORT` verwendet die Anwendung weiterhin Host-Port `8000`. Der Container muss die Drucker-IP auf TCP-Port 9100 erreichen können. CUPS wird nicht benötigt.
 
 Die DPI muss zum konkreten Druckkopf passen. Besonders der ZD420 ist je nach Modell mit 203 oder 300 dpi erhältlich. Breite und Höhe werden in Millimetern konfiguriert und erst beim Druck in Druckpunkte umgerechnet.
 
@@ -31,9 +32,18 @@ Die DPI muss zum konkreten Druckkopf passen. Besonders der ZD420 ist je nach Mod
 
 1. Das Repository `https://github.com/rganter/dhl-zebra-label-printer` in Portainer als Git-Stack anlegen.
 2. Eine Druckerkonfiguration auf dem Docker-Host hinterlegen und die Stack-Umgebungsvariable `PRINTER_CONFIG_FILE` auf diesen Pfad setzen. Ohne Variable startet der Stack mit `config/printers.example.yml`; deren Beispiel-IP-Adressen müssen vor einem echten Druck ersetzt werden.
-3. Den Stack deployen und Port 8000 freigeben.
-4. `http://SERVER-IP:8000/health` sollte `{"status":"ok"}` liefern.
-5. Zuerst Vorschau und PDF-Download prüfen, anschließend ein Testlabel drucken.
+3. Optional `WEB_PORT` auf einen freien Host-Port setzen, beispielsweise `8085`. Ohne diese Variable wird `8000` verwendet.
+4. Den Stack deployen und den gewählten Host-Port freigeben.
+5. `http://SERVER-IP:WEB_PORT/health` sollte `{"status":"ok"}` liefern.
+6. Zuerst Vorschau und PDF-Download prüfen, anschließend ein Testlabel drucken.
+
+### Umgebungsvariablen
+
+| Variable | Standard | Bedeutung |
+| --- | --- | --- |
+| `WEB_PORT` | `8000` | Auf dem Docker-Host veröffentlichter HTTP-Port. Der interne Container-Port bleibt `8000`. |
+| `PRINTER_CONFIG_FILE` | `./config/printers.example.yml` | Pfad der Druckerkonfiguration auf dem Docker-Host. |
+| `PRINTER_CONFIG` | `/config/printers.yml` | Interner Konfigurationspfad im Container; normalerweise nicht zu ändern. |
 
 Der Compose-Stack läuft mit schreibgeschütztem Dateisystem, ohne zusätzliche Privilegien und nur einem Uvicorn-Worker. Ein Worker ist erforderlich, weil die kurzlebigen Ergebnisse im Prozessspeicher liegen.
 
