@@ -1,0 +1,16 @@
+services:
+  dhl-zebra-label-printer:
+    build: .
+    container_name: dhl-zebra-label-printer
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ${PRINTER_CONFIG_FILE:-./config/printers.example.yml}:/config/printers.yml:ro
+    environment:
+      PRINTER_CONFIG: /config/printers.yml
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    security_opt:
+      - no-new-privileges:true

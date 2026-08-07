@@ -1,0 +1,15 @@
+printers:
+  - name: "Zebra GK420d"
+    host: "192.168.1.50"
+    port: 9100
+    dpi: 203
+    label_width_mm: 100
+    label_height_mm: 150
+
+  - name: "Zebra ZD420"
+    host: "192.168.1.51"
+    port: 9100
+    dpi: 203
+    label_width_mm: 100
+    label_height_mm: 150
+

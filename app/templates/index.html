@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DHL Zebra Label Printer</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}">
+</head>
+<body>
+  <main>
+    <header><span class="brand">DHL</span><h1>Zebra Label Printer</h1></header>
+    {% if error %}<div class="message error">{{ error }}</div>{% endif %}
+    {% if source_preview %}
+    <section class="card result warning-preview">
+      <h2>Quellvorschau – nicht druckbar</h2>
+      <p>Bitte prüfen: Dieses Dokument wurde nicht freigegeben und kann nicht gedruckt werden.</p>
+      <img src="{{ source_preview }}" alt="Quellvorschau des abgewiesenen PDFs">
+    </section>
+    {% endif %}
+    {% if success %}<div class="message success">{{ success }}</div>{% endif %}
+    <section class="card">
+      <h2>1. DHL-PDF auswählen</h2>
+      <form action="/upload" method="post" enctype="multipart/form-data">
+        <label class="drop" id="drop"><strong>PDF hier ablegen</strong><span>oder Datei auswählen</span>
+          <input id="pdf" name="pdf" type="file" accept="application/pdf,.pdf" required>
+        </label>
+        <button type="submit">Versandmarke erkennen</button>
+      </form>
+    </section>
+    {% if token %}
+    <section class="card result">
+      <div><h2>2. Druckvorschau</h2><p>Diese Fläche wird auf 100 × 150 mm gedruckt.</p></div>
+      <img src="/preview/{{ token }}" alt="Vorschau des extrahierten Versandlabels">
+      <div class="actions">
+        <a class="button secondary" href="/download/{{ token }}">PDF herunterladen</a>
+        <form action="/print/{{ token }}" method="post">
+          <select name="printer" required aria-label="Drucker">
+            {% for p in printers %}<option value="{{ loop.index0 }}">{{ p.name }} · {{ p.dpi }} dpi · {{ p.host }}</option>{% endfor %}
+          </select>
+          <button type="submit" {% if not printers %}disabled{% endif %}>Jetzt drucken</button>
+        </form>
+      </div>
+    </section>
+    {% endif %}
+    <p class="privacy">Datenschutz: Das Original-PDF wird nur im Arbeitsspeicher verarbeitet. Ergebnisse verfallen nach 15 Minuten.</p>
+  </main>
+  <script>const i=document.querySelector('#pdf'),d=document.querySelector('#drop');i?.addEventListener('change',()=>{if(i.files[0])d.querySelector('strong').textContent=i.files[0].name});['dragenter','dragover'].forEach(e=>d?.addEventListener(e,x=>{x.preventDefault();d.classList.add('over')}));['dragleave','drop'].forEach(e=>d?.addEventListener(e,x=>{x.preventDefault();d.classList.remove('over');if(e==='drop'&&x.dataTransfer.files.length){i.files=x.dataTransfer.files;d.querySelector('strong').textContent=i.files[0].name}}));</script>
+</body>
+</html>
