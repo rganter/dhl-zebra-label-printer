@@ -22,6 +22,9 @@ class ProcessedLabel:
     crop: tuple[float, float, float, float]
 
 
+_LABEL_ANCHORS = ("DHL Online Frankierung", "DHL Retoure")
+
+
 def _normalise(text: str) -> str:
     return re.sub(r"\s+", " ", text.replace("–", "-").replace("—", "-")).strip().lower()
 
@@ -54,29 +57,35 @@ def _search_union(page: fitz.Page, *parts: str) -> fitz.Rect | None:
     return rect
 
 
-def _find_anchors(page: fitz.Page) -> tuple[fitz.Rect, fitz.Rect]:
+def _find_anchors(page: fitz.Page) -> tuple[fitz.Rect, fitz.Rect, str]:
     # search_for retains the correct rectangles for text whose writing direction
     # is rotated inside an otherwise unrotated A4 page.
-    shipping = _search_union(page, "DHL Online Frankierung")
+    shipping: fitz.Rect | None = None
+    label_anchor = ""
+    for candidate in _LABEL_ANCHORS:
+        shipping = _search_union(page, candidate)
+        if shipping:
+            label_anchor = candidate
+            break
     receipt = _search_union(page, "Sendungsinformation", "Ihre Unterlagen")
     if not shipping or not receipt:
         raise UnsupportedLabelError(
             "Die erforderlichen DHL-Textanker wurden nicht gefunden. Das PDF wird aus Sicherheitsgründen nicht gedruckt."
         )
-    return shipping, receipt
+    return shipping, receipt, label_anchor
 
 
-def _shipping_rotation(page: fitz.Page) -> int:
+def _label_rotation(page: fitz.Page, label_anchor: str) -> int:
     for block in page.get_text("dict").get("blocks", []):
         for line in block.get("lines", []):
             text = "".join(span.get("text", "") for span in line.get("spans", []))
-            if "DHL Online Frankierung" not in text:
+            if label_anchor not in text:
                 continue
             dx, dy = line.get("dir", (1.0, 0.0))
             if abs(dx) >= abs(dy):
                 return 0 if dx > 0 else 180
             return 270 if dy < 0 else 90
-    raise UnsupportedLabelError("Die Orientierung der Versandmarke konnte nicht bestimmt werden.")
+    raise UnsupportedLabelError("Die Orientierung des DHL-Labels konnte nicht bestimmt werden.")
 
 
 def _tight_label_crop(page: fitz.Page, coarse: fitz.Rect, rotation: int) -> fitz.Rect:
@@ -204,9 +213,9 @@ def process_dhl_pdf(data: bytes) -> ProcessedLabel:
         page = source[0]
         source_preview = _render_page(page, 110)
         try:
-            shipping, receipt = _find_anchors(page)
+            shipping, receipt, label_anchor = _find_anchors(page)
             coarse_crop = _crop_from_anchors(page, shipping, receipt)
-            rotate = _shipping_rotation(page)
+            rotate = _label_rotation(page, label_anchor)
             crop = _tight_label_crop(page, coarse_crop, rotate)
         except UnsupportedLabelError as exc:
             exc.preview_png = source_preview

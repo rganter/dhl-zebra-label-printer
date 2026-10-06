@@ -1,11 +1,11 @@
 # DHL Zebra Label Printer
 
-Eine kleine, plattformunabhängige Docker-Webanwendung, die die Versandmarke aus einseitigen A4-PDFs der DHL Online Frankierung extrahiert und per Zebra-ZPL direkt über TCP/9100 druckt.
+Eine kleine, plattformunabhängige Docker-Webanwendung, die Versand- und Retourenlabels aus einseitigen A4-PDFs der DHL Online Frankierung direkt per Zebra-ZPL über TCP/9100 druckt.
 
 ## Funktionen
 
 - Drag-and-drop-Upload und serverseitige HTML-Oberfläche
-- konservative DHL-Erkennung über die Textanker `DHL Online Frankierung`, `Sendungsinformation` und `Ihre Unterlagen`
+- konservative DHL-Erkennung für Versandlabels über `DHL Online Frankierung` und Retourenlabels über `DHL Retoure`; jeweils mit den Belegankern `Sendungsinformation` und `Ihre Unterlagen`
 - dynamischer Feinbeschnitt anhand der Label-Trennlinien; A5-Leerfläche und Schneidemarken werden entfernt
 - automatische Erkennung der im PDF gedrehten Schreibrichtung
 - vektorbasierter Beschnitt; Rasterung erst in der konfigurierten Druckerauflösung
@@ -77,7 +77,7 @@ Die Anwendung besitzt im MVP keine Authentifizierung. Sie sollte ausschließlich
 
 ## Grenzen des MVP
 
-- einseitige DHL-Online-Frankierungs-PDFs mit den bekannten Textankern
+- einseitige DHL-Online-Frankierungs- und DHL-Retouren-PDFs mit den bekannten Textankern
 - In-Memory-Speicher, daher genau ein App-Worker und keine horizontale Skalierung
 - keine Druckerstatusabfrage; ein erfolgreicher TCP-Versand bestätigt nicht die mechanische Ausgabe
 - noch keine Carrier Hermes, DPD oder GLS
