@@ -10,7 +10,9 @@ from app.label_processor import (
 
 
 def synthetic_dhl_pdf(
-    rotated: bool = True, label_anchor: str = "DHL Online Frankierung"
+    rotated: bool = True,
+    label_anchor: str = "DHL Online Frankierung",
+    return_footer: bool = False,
 ) -> bytes:
     doc = fitz.open()
     page = doc.new_page(width=595, height=842)
@@ -19,6 +21,8 @@ def synthetic_dhl_pdf(
         page.insert_text((50, 780), "Sendungsinformation - fuer Ihre Unterlagen.", fontsize=12, rotate=90)
         for x in (80, 220, 380, 550):
             page.draw_line((x, 70), (x, 350), width=0.5)
+        if return_footer:
+            page.insert_text((575, 340), "Retoure@GKP", fontsize=8, rotate=90)
     else:
         page.insert_text((80, 80), label_anchor, fontsize=12)
         page.insert_text((80, 500), "Sendungsinformation - fuer Ihre Unterlagen.", fontsize=12)
@@ -77,6 +81,14 @@ def test_rotated_return_label_is_trimmed_to_its_ruled_content():
     assert x1 < 595
     assert y1 < 421
     assert render_label_preview(result.pdf, 103, 199).startswith(b"\x89PNG")
+
+
+def test_return_footer_and_trailing_whitespace_are_removed():
+    result = process_dhl_pdf(
+        synthetic_dhl_pdf(label_anchor="DHL Retoure", return_footer=True)
+    )
+    _, _, x1, _ = result.crop
+    assert x1 < 570
 
 
 @pytest.mark.parametrize("width_mm,height_mm", [(100, 150), (103, 199), (102, 210)])

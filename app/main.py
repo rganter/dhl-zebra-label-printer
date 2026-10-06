@@ -25,7 +25,7 @@ from .label_processor import (
 from .printer import print_label
 
 BASE_DIR = Path(__file__).parent
-APP_VERSION = os.getenv("APP_VERSION", "0.2.0")
+APP_VERSION = os.getenv("APP_VERSION", "0.2.1")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 templates.env.globals["app_version"] = APP_VERSION
 

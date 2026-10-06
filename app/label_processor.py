@@ -88,7 +88,12 @@ def _label_rotation(page: fitz.Page, label_anchor: str) -> int:
     raise UnsupportedLabelError("Die Orientierung des DHL-Labels konnte nicht bestimmt werden.")
 
 
-def _tight_label_crop(page: fitz.Page, coarse: fitz.Rect, rotation: int) -> fitz.Rect:
+def _tight_label_crop(
+    page: fitz.Page,
+    coarse: fitz.Rect,
+    rotation: int,
+    return_footer: fitz.Rect | None = None,
+) -> fitz.Rect:
     """Trim the A5 carrier section to the actual ruled shipping label.
 
     DHL's printable label contains several long, parallel separator rules. Their
@@ -163,6 +168,21 @@ def _tight_label_crop(page: fitz.Page, coarse: fitz.Rect, rotation: int) -> fitz
     if bounds is None:
         raise UnsupportedLabelError("Im erkannten Versandlabel wurde kein Inhalt gefunden.")
     bounds = fitz.Rect(bounds.x0 - 6, bounds.y0 - 6, bounds.x1 + 6, bounds.y1 + 6) & coarse
+
+    # Retourenlabels contain a non-printable "Retoure@GKP" footer after the
+    # shipping barcode. Do not preserve it (or the following blank strip), so
+    # the actual label makes best use of the configured media.
+    if return_footer:
+        if vertical:
+            if return_footer.x0 >= coarse.x0 + coarse.width / 2:
+                bounds.x1 = min(bounds.x1, return_footer.x0 - 6)
+            else:
+                bounds.x0 = max(bounds.x0, return_footer.x1 + 6)
+        elif return_footer.y0 >= coarse.y0 + coarse.height / 2:
+            bounds.y1 = min(bounds.y1, return_footer.y0 - 6)
+        else:
+            bounds.y0 = max(bounds.y0, return_footer.y1 + 6)
+
     if vertical:
         bounds.y0 = max(coarse.y0, cross_min - 6)
         bounds.y1 = min(coarse.y1, cross_max + 6)
@@ -216,7 +236,12 @@ def process_dhl_pdf(data: bytes) -> ProcessedLabel:
             shipping, receipt, label_anchor = _find_anchors(page)
             coarse_crop = _crop_from_anchors(page, shipping, receipt)
             rotate = _label_rotation(page, label_anchor)
-            crop = _tight_label_crop(page, coarse_crop, rotate)
+            return_footer = None
+            if label_anchor == "DHL Retoure":
+                footer_hits = page.search_for("Retoure@GKP")
+                if footer_hits:
+                    return_footer = footer_hits[0]
+            crop = _tight_label_crop(page, coarse_crop, rotate, return_footer)
         except UnsupportedLabelError as exc:
             exc.preview_png = source_preview
             raise
