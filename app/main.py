@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import asyncio
+import os
 import secrets
 import time
 from contextlib import asynccontextmanager, suppress
@@ -24,7 +25,9 @@ from .label_processor import (
 from .printer import print_label
 
 BASE_DIR = Path(__file__).parent
+APP_VERSION = os.getenv("APP_VERSION", "0.2.0")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+templates.env.globals["app_version"] = APP_VERSION
 
 
 @dataclass
@@ -99,7 +102,7 @@ def _printer(index: int) -> PrinterProfile:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"status": "ok", "version": APP_VERSION}
 
 
 @app.get("/", response_class=HTMLResponse)

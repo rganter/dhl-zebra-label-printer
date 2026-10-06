@@ -47,6 +47,7 @@ Mehrere Formate können auch für dieselbe Drucker-IP als separate Profile angel
 | `WEB_PORT` | `8000` | Auf dem Docker-Host veröffentlichter HTTP-Port. Der interne Container-Port bleibt `8000`. |
 | `PRINTER_CONFIG_FILE` | `./config/printers.example.yml` | Pfad der Druckerkonfiguration auf dem Docker-Host. |
 | `PRINTER_CONFIG` | `/config/printers.yml` | Interner Konfigurationspfad im Container; normalerweise nicht zu ändern. |
+| `APP_VERSION` | `0.2.0` | Angezeigter Versionsstand im Dashboard und in `/health`; kann beim Containerstart überschrieben werden. |
 
 Der Compose-Stack läuft mit schreibgeschütztem Dateisystem, ohne zusätzliche Privilegien und nur einem Uvicorn-Worker. Ein Worker ist erforderlich, weil die kurzlebigen Ergebnisse im Prozessspeicher liegen.
 

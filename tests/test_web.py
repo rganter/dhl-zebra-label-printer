@@ -16,8 +16,16 @@ def test_static_assets_use_proxy_safe_relative_urls():
     assert response.status_code == 200
     assert 'href="/static/style.css"' in response.text
     assert 'src="/static/dhl-logo.svg"' in response.text
+    assert "Versionsstand: 0.2.0" in response.text
     assert "http://internal-container/static/" not in response.text
     assert response.headers["cache-control"] == "no-store, max-age=0"
+
+
+def test_health_reports_the_running_version():
+    response = TestClient(app).get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "version": "0.2.0"}
 
 
 def test_stylesheet_is_served_as_css():

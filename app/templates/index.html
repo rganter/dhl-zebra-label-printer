@@ -44,7 +44,10 @@
       {% else %}<div class="message error">Kein Druckerprofil konfiguriert.</div>{% endif %}
     </section>
     {% endif %}
-    <p class="privacy">Datenschutz: Das Original-PDF wird nur im Arbeitsspeicher verarbeitet. Ergebnisse verfallen nach 15 Minuten.</p>
+    <footer>
+      <p class="privacy">Datenschutz: Das Original-PDF wird nur im Arbeitsspeicher verarbeitet. Ergebnisse verfallen nach 15 Minuten.</p>
+      <p class="version">Versionsstand: {{ app_version }}</p>
+    </footer>
   </main>
   <script>const i=document.querySelector('#pdf'),d=document.querySelector('#drop');i?.addEventListener('change',()=>{if(i.files[0])d.querySelector('strong').textContent=i.files[0].name});['dragenter','dragover'].forEach(e=>d?.addEventListener(e,x=>{x.preventDefault();d.classList.add('over')}));['dragleave','drop'].forEach(e=>d?.addEventListener(e,x=>{x.preventDefault();d.classList.remove('over');if(e==='drop'&&x.dataTransfer.files.length){i.files=x.dataTransfer.files;d.querySelector('strong').textContent=i.files[0].name}}));const p=document.querySelector('#printer-profile'),v=document.querySelector('#label-preview'),a=document.querySelector('#label-download'),s=document.querySelector('#label-size');function updateProfile(){if(!p)return;const o=p.selectedOptions[0],n=p.value;if(v)v.src='/preview/{{ token|default("") }}/'+n;if(a)a.href='/download/{{ token|default("") }}/'+n;if(s)s.textContent=o.dataset.width+' × '+o.dataset.height+' mm'}p?.addEventListener('change',updateProfile);updateProfile();</script>
 </body>
