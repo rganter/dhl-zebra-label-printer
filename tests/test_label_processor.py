@@ -19,7 +19,8 @@ def synthetic_dhl_pdf(
     if rotated:
         page.insert_text((50, 350), label_anchor, fontsize=12, rotate=90)
         page.insert_text((50, 780), "Sendungsinformation - fuer Ihre Unterlagen.", fontsize=12, rotate=90)
-        for x in (80, 220, 380, 550):
+        rule_positions = (80, 220, 380, 500) if return_footer else (80, 220, 380, 550)
+        for x in rule_positions:
             page.draw_line((x, 70), (x, 350), width=0.5)
         if return_footer:
             page.insert_text((575, 340), "Retoure@GKP", fontsize=8, rotate=90)
@@ -88,7 +89,7 @@ def test_return_footer_and_trailing_whitespace_are_removed():
         synthetic_dhl_pdf(label_anchor="DHL Retoure", return_footer=True)
     )
     _, _, x1, _ = result.crop
-    assert x1 < 570
+    assert x1 < 540
 
 
 @pytest.mark.parametrize("width_mm,height_mm", [(100, 150), (103, 199), (102, 210)])

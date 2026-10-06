@@ -145,8 +145,24 @@ def _tight_label_crop(
 
     bounds: fitz.Rect | None = None
 
+    def is_return_footer(rect: fitz.Rect) -> bool:
+        if not return_footer:
+            return False
+        # The footer is placed after the actual return label along its long
+        # axis. Exclude its entire strip, which also removes the adjacent A4
+        # marker without relying on a language- or format-specific word.
+        if vertical:
+            if return_footer.x0 >= coarse.x0 + coarse.width / 2:
+                return rect.x0 >= return_footer.x0 - 12
+            return rect.x1 <= return_footer.x1 + 12
+        if return_footer.y0 >= coarse.y0 + coarse.height / 2:
+            return rect.y0 >= return_footer.y0 - 12
+        return rect.y1 <= return_footer.y1 + 12
+
     def include(rect: fitz.Rect) -> None:
         nonlocal bounds
+        if is_return_footer(rect):
+            return
         clipped = rect & slab
         if clipped.is_empty:
             return
